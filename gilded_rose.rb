@@ -1,53 +1,30 @@
 class GildedRose
+  ITEMS_VALUATION = {
+    "Aged Brie" => { normal: ->(quality,_){quality + 1}, passed: ->(quality,_){quality + 2} },
+    "Sulfuras, Hand of Ragnaros" => { normal: ->(_,_){80}, passed: ->(_,_){80} },
+    "Backstage passes to a TAFKAL80ETC concert" => {
+      normal: ->(quality, sell_in){
+        return quality + 3 if sell_in <= 5
+        return quality + 2 if sell_in <= 10
+        quality + 1
+      }, passed: ->(quality,_){0}
+    },
+    "Conjured" => { normal: ->(quality,_){quality - 2 }, passed: ->(quality,_){quality - 4} },
+  }
+
+  ITEMS_VALUATION.default = {
+    normal: ->(quality,_){quality - 1}, passed: ->(quality,_){quality - 2}
+  }
+
   def initialize(items)
     @items = items
   end
 
-  def update_quality()
+  def update_quality
     @items.each do |item|
-      if item.name != 'Aged Brie' and item.name != 'Backstage passes to a TAFKAL80ETC concert'
-        if item.quality > 0
-          if item.name != 'Sulfuras, Hand of Ragnaros'
-            item.quality = item.quality - 1
-          end
-        end
-      else
-        if item.quality < 50
-          item.quality = item.quality + 1
-          if item.name == 'Backstage passes to a TAFKAL80ETC concert'
-            if item.sell_in < 11
-              if item.quality < 50
-                item.quality = item.quality + 1
-              end
-            end
-            if item.sell_in < 6
-              if item.quality < 50
-                item.quality = item.quality + 1
-              end
-            end
-          end
-        end
-      end
-      if item.name != 'Sulfuras, Hand of Ragnaros'
-        item.sell_in = item.sell_in - 1
-      end
-      if item.sell_in < 0
-        if item.name != 'Aged Brie'
-          if item.name != 'Backstage passes to a TAFKAL80ETC concert'
-            if item.quality > 0
-              if item.name != 'Sulfuras, Hand of Ragnaros'
-                item.quality = item.quality - 1
-              end
-            end
-          else
-            item.quality = item.quality - item.quality
-          end
-        else
-          if item.quality < 50
-            item.quality = item.quality + 1
-          end
-        end
-      end
+      sell_in_status = item.sell_in.zero? ? :passed : :normal
+      new_quality = ITEMS_VALUATION[item.name][sell_in_status].call(item.quality, item.sell_in)
+      item.quality = new_quality unless (new_quality < 0 || new_quality > 50)
     end
   end
 end
