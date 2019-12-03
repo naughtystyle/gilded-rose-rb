@@ -1,33 +1,76 @@
 class GildedRose
-  ITEMS_VALUATION = {
-    "Aged Brie" => { normal: ->(quality,_){quality + 1}, passed: ->(quality,_){quality + 2} },
-    "Sulfuras, Hand of Ragnaros" => { normal: ->(_,_){80}, passed: ->(_,_){80} },
-    "Backstage passes to a TAFKAL80ETC concert" => {
-      normal: ->(quality, sell_in){
-        return quality + 3 if sell_in <= 5
-        return quality + 2 if sell_in <= 10
-        quality + 1
-      }, passed: ->(quality,_){0}
-    },
-    "Conjured" => { normal: ->(quality,_){quality - 2 }, passed: ->(quality,_){quality - 4} },
-  }
-
-  ITEMS_VALUATION.default = {
-    normal: ->(quality,_){quality - 1}, passed: ->(quality,_){quality - 2}
-  }
-
   def initialize(items)
     @items = items
   end
 
   def update_quality
     @items.each do |item|
-      sell_in_status = item.sell_in.zero? ? :passed : :normal
-      new_quality = ITEMS_VALUATION[item.name][sell_in_status].call(item.quality, item.sell_in)
-      item.quality = new_quality unless (new_quality < 0 || new_quality > 50)
+      update_quality_for(item)
     end
   end
+
+  private
+
+  class Uncategorized
+    def initialize(item)
+      @item = item
+    end
+
+    def update_quality
+      @item.sell_in.zero? ? update(-2) : update(-1)
+    end
+
+    def update(amount)
+      @item.quality += amount
+      @item.quality = 0 if @item.quality < 0
+      @item.quality = 50 if @item.quality > 50
+    end
+  end
+
+  class AgedBrie < Uncategorized
+    def update_quality
+      @item.sell_in.zero? ? update(2) : update(1)
+    end
+  end
+
+  class Sulfuras < Uncategorized
+    def update_quality
+    end
+  end
+
+  class Backstage < Uncategorized
+    def update_quality
+      return @item.quality = 0 if @item.sell_in.zero?
+      return update(3) if @item.sell_in <= 5
+      return update(2) if @item.sell_in <= 10
+      update(1)
+    end
+  end
+
+  class Conjured < Uncategorized
+    def update_quality
+      2.times { super }
+    end
+  end
+
+  ITEMS_VALUATION = {
+    /Aged Brie/ => AgedBrie,
+    /Sulfuras/ => Sulfuras,
+    /Backstage pass/ => Backstage,
+    /Conjured/ => Conjured,
+  }
+
+  ITEMS_VALUATION.default = Uncategorized
+
+  def update_quality_for(item)
+    ITEMS_VALUATION[category_for(item)].new(item).update_quality
+  end
+
+  def category_for(item)
+    ITEMS_VALUATION.keys.find{|r| r.match(item.name) }
+  end
 end
+
 
 class Item
   attr_accessor :name, :sell_in, :quality
